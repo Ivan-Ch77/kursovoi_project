@@ -1,233 +1,198 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
 
-# Функция для рисования отрезка между двумя точками в 2D
-def draw_line(x0, y0, x1, y1):
-    points = []
-    is_steep = abs(y1 - y0) > abs(x1 - x0)
-    if is_steep:
-        x0, y0 = y0, x0
-        x1, y1 = y1, x1
-    swapped = False
-    if x0 > x1:
-        x0, x1 = x1, x0
-        y0, y1 = y1, y0
-        swapped = True
-    dx = x1 - x0
-    dy = abs(y1 - y0)
-    error = dx / 2
-    y = y0
-    ystep = None
-    if y0 < y1:
-        ystep = 1
-    else:
-        ystep = -1
-    for x in range(int(x0), int(x1) + 1):
-        if is_steep:
-            points.append((y, x))
+
+def tooth_coord(t):
+    """Функция, которая на вход получает время t и возвращает список координат вершин зубьев фрезы через время t"""
+    angle_step = 2 * np.pi / n
+    coord = []
+    tool_x = tool_start_x + V_f*t  # Координата x центра фрезы через время t
+    tool_y = tool_start_y  # Координата y центра фрезы через время t
+    for i in range(n):
+        angle = i * angle_step + oomega * t
+        x = tool_x + D / 2 * np.cos(angle)
+        y = tool_y + D / 2 * np.sin(angle)
+        coord.append((x, y))
+    return coord
+
+
+def cutting(t, step):
+    global buffer
+    xy_old = tooth_coord(t)
+    xy_new = tooth_coord(t + step)
+    for j, (x, y) in enumerate(buffer):
+        for i in range(n):
+            x_old = xy_old[i][0]
+            y_old = xy_old[i][1]
+            x_new = xy_new[i][0]
+            y_new = xy_new[i][1]
+
+            # Ищем уравнение прямой, проходящей через эти точки (y = mx + b)
+            try:
+                m = (y_new - y_old) / (x_new - x_old)
+                b1 = y_old - m * x_old
+            except RuntimeWarning:
+                print('RuntimeWarning')
+
+            if x_old <= x <= x_new and m*x + b1 < y < b_workpiece:
+                buffer[j] = (x, m*x + b1)
+
+
+def find_thickness(t, number):
+    """number отвечает за номер кромки, для которой находим толщину срезаемого слоя"""
+    global buffer
+
+    def find_intersection_point(m1, b1, m2, b2):
+        if m1 == m2:
+            # Прямые параллельны, нет точки пересечения
+            return None
         else:
-            points.append((x, y))
-        error -= dy
-        if error < 0:
-            y += ystep
-            error += dx
-    if swapped:
-        points.reverse()
-    return points
+            x = (b2 - b1) / (m1 - m2)
+            y = m1 * x + b1
+            return x, y
 
-# Функция для рисования фрезы
-def draw_mill(n, D, a):
-    fig, ax = plt.subplots()
+    def distance_between_points(point1, point2):
+        x1, y1 = point1
+        x2, y2 = point2
+        distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        # print(distance)
+        return distance
 
-    # Рисуем фрезу как окружность
-    center = (0, 0)
-    mill = Circle(center, D / 2, fill=True, color='blue')
-    ax.add_patch(mill)
+    xy_tooth = tooth_coord(t)[number]
+    x_tooth = xy_tooth[0]
+    y_tooth = xy_tooth[1]
+    for j, (x, y) in enumerate(buffer):
+        if buffer[j - 1][0] <= x_tooth <= buffer[j][0] and y_tooth < y < b_workpiece:
+            # Определение коэф-ов для режущей кромки
+            tool_x = tool_start_x + V_f * t  # Координата x центра фрезы через время t
+            tool_y = tool_start_y  # Координата y центра фрезы через время t
+            m_tooth = (y_tooth - tool_y) / (x_tooth - tool_x)
+            b_tooth = tool_y - m_tooth * tool_x
+            # Определение коэф-ов для z-буффера
+            m_buffer = (buffer[j][1] - buffer[j - 1][1]) / (buffer[j][0] - buffer[j - 1][0])
+            b_buffer = buffer[j - 1][1] - m_buffer * buffer[j - 1][0]
 
-    # Рисуем название фрезы
-    ax.text(center[0], center[1], f'n={n}\nD={D} mm\na={a} mm', ha='center', va='center', color='black', fontsize=10)
+            intersection_point = find_intersection_point(m_tooth, b_tooth, m_buffer, b_buffer)
 
-    ax.set_aspect('equal')
-    ax.set_xlim(-D / 2, D / 2)
-    ax.set_ylim(-D / 2, D / 2)
+            k = 0
+            while True:
+                k += 1
+                if intersection_point[0] < buffer[j - k][0]:
+                    m_buffer = (buffer[j - k][1] - buffer[j - k - 1][1]) / (buffer[j - k][0] - buffer[j - k - 1][0])
+                    b_buffer = buffer[j - k - 1][1] - m_buffer * buffer[j - k - 1][0]
 
-# Функция для рисования параллелепипеда и линейной аппроксимации между точками разбиения
-def draw_cuboid(width, height, length, dx, t):
-    fig, ax = plt.subplots()
+                    intersection_point = find_intersection_point(m_tooth, b_tooth, m_buffer, b_buffer)
+                    if k == 2:
+                        print(k)
+                else:
+                    break
 
-    # Размеры параллелепипеда
-    w = width
-    h = height
-    l = length
+            point1 = intersection_point
+            point2 = (x_tooth, y_tooth)
 
-    # Переворачиваем координаты вершин параллелепипеда для изменения направления осей
-    vertices = [
-        [0, 0, 0],
-        [0, l, 0],
-        [w, l, 0],
-        [w, 0, 0],
-        [0, 0, h],
-        [0, l, h],
-        [w, l, h],
-        [w, 0, h]
-    ]
-
-    # Создаем список ребер
-    edges = [
-        (0, 1), (1, 2), (2, 3), (3, 0),
-        (4, 5), (5, 6), (6, 7), (7, 4),
-        (0, 4), (1, 5), (2, 6), (3, 7)
-    ]
-
-    # Вычисляем, какая часть заготовки была выфрезерована к моменту времени t
-    material_removed = (omega * np.pi * D * t) * (dx / f)
-
-    # Рисуем ребра параллелепипеда
-    for edge in edges:
-        x0, y0, z0 = vertices[edge[0]]
-        x1, y1, z1 = vertices[edge[1]]
-        if x0 < material_removed and x1 < material_removed:
-            continue
-        x0 = max(x0, material_removed)
-        x1 = max(x1, material_removed)
-        points = draw_line(x0, z0, x1, z1)
-        for point in points:
-            ax.plot([x0, point[0]], [z0, point[1]], 'ko-', markersize=2)
-
-    # Рисуем заготовку полностью
-    for edge in edges:
-        x0, y0, z0 = vertices[edge[0]]
-        x1, y1, z1 = vertices[edge[1]]
-        points = draw_line(x0, z0, x1, z1)
-        for point in points:
-            ax.plot([x0, point[0]], [z0, point[1]], 'ro-', markersize=2)
-
-    ax.set_xlabel('X')
-    ax.set_ylabel('Z')
-
-    plt.axis('equal')
-
-# Задаем параметры фрезы и резания
-n = int(input('Кол-во зубьев фрезы: '))
-D = float(input('Диаметр фрезы[мм]: '))
-a = float(input('Ширина резания[мм]: '))
-Hr = float(input('Радиальная глубина резания[мм]: '))
-omega = float(input('Скорость вращения шпинделя[об/мин]: '))
-f = float(input('Подача[мкм]: '))
-b = float(input('Длина заготовки[мм]: '))
-dt = float(input('Время, прошедшее с запуска фрезы[с]: '))
-dx = float(input('Разбиение детали на отрезки dx[мм]: '))
-
-# Рисуем фрезу
-draw_mill(n, D, a)
-
-# Рисуем параллелепипед с учетом фрезерования
-draw_cuboid(b, Hr, D, dx, dt)
-
-plt.show()
+            if intersection_point is not None:
+                distance = distance_between_points(point1, point2)
+                thickness_list[number][count_len_thikness_list] = distance
+                # print(distance)
+            else:
+                print("Прямые параллельны, невозможно найти расстояние")
 
 
+def plot_thickness(step, thickness_list, number=-1):
+    '''   Функция строит график толщины срезаемого слоя от времени
+    На вход она принимает: step - шаг разбиения по времени
+                           thickness_list - словарь со списком толщин для каждой режущей кромки   '''
+    # Создание списка значений x и y для построения графика
+    x = [i * step for i in range(1, len(thickness_list[0]) + 1)]
+    y = []
+    max_length = max(len(lst) for lst in thickness_list.values())
 
-# def define_a_quarter(omega, t, angle=0):
-#     k = omega * t // (2 * np.pi)  # Сколько оборотов уже совершено
-#     angle_new = angle - 2*np.pi*k  # Угол поворота [0,2pi]
-#     if 0 <= angle_new <= np.pi/2:
-#         quarter = 1
-#     elif np.pi/2 <= angle_new <= np.pi:
-#         quarter = 4
-#     elif np.pi <= angle_new <= 3*np.pi/2:
-#         quarter = 3
-#     else:
-#         quarter = 2
-#
-#     return quarter
+    # Идем по индексам от 0 до max_length - 1
+    for i in range(max_length):
+        found = False
+        for key in thickness_list:
+            if len(thickness_list[key]) > i and thickness_list[key][i] != 0:
+                y.append(thickness_list[key][i])
+                found = True
+                break
+        if not found:
+            y.append(0)
 
-# Функция для вычисления координат вершин фрезы в зависимости от времени t
-# alpha - изначальный поворот фрезы относительно вертикали
-# def calculate_tool_path(t, alpha=0):
-    # Расчет угла поворота фрезы в зависимости от времени t
-    # angular_velocity = 2 * np.pi * n  # Угловая скорость вращения фрезы (полный оборот в секунду)
-    # angle = angular_velocity * t
+    # Построение точечного графика
+    plt.scatter(x, y, label='Точки', color='blue')
 
-    # Начальные параметры
-    # angle = omega * t + alpha  # Текущий угол
-    # tool_x = tool_start_x + V_f * t
-    # tool_y = tool_start_y
-    # Расчет координат вершин зубьев фрезы
-    # tool_vertices = []
-    # for i in range(n):
-    #     tooth_angle = angle + 2 * np.pi * i / n
-        # x_loc = D / 2 * np.cos(tooth_angle)  # Локальный x относительно центра фрезы
-        # y_loc = D / 2 * np.sin(tooth_angle)  # Локальный y относительно центра фрезы
-        # tool_vertices.append((x_loc, y_loc))  # Список координат вершин зубьев относительно центра фрезы
-        # В глобальной СК, где центр - это нижняя левая часть заготовки
-        # quarter = define_a_quarter(omega, t, tooth_angle)  # Возвращает список, где [0] - четверть, а [1:2] - коэф-ты прибавления/вычитания X, Y
-        # if quarter[0] == 1:
-        #     x_tooth = tool_x + np.sin(tooth_angle) * D/2
-        #     y_tooth = tool_y + np.cos(tooth_angle) * D/2
-        # elif quarter[0] == 2:
-        #     x_tooth = tool_x - np.sin(tooth_angle) * D / 2
-        #     y_tooth = tool_y + np.cos(tooth_angle) * D / 2
-        # elif quarter[0] == 3:
-        #     x_tooth = tool_x + np.sin(tooth_angle) * D / 2
-        #     y_tooth = tool_y + np.cos(tooth_angle) * D / 2
-        # elif quarter[0] == 4:
-        #     x_tooth = tool_x + np.sin(tooth_angle) * D / 2
-        #     y_tooth = tool_y + np.cos(tooth_angle) * D / 2
+    # Соединение точек прямыми линиями
+    plt.plot(x, y, label='Прямые', color='red', linestyle='solid')
 
-    # return tool_vertices
+    # Добавление заголовка и меток осей
+    plt.title('График толщины срезаемого слоя в зависимости от времени t')
+    plt.xlabel('t')
+    plt.ylabel('h')
+
+    # Добавление легенды
+    plt.legend()
+    plt.xlim(0.3125, 0.319)
+    plt.ylim(0, 0.09)
+
+    # Отображение графика
+    plt.show()
 
 
+# Определяем параметры фрезы и резания
+n = 4  # Кол-во зубьев фрезы [безразм]
+D = 6.0  # Диаметр фрезы [мм]
+a = 4.0  # Ширина резания [мм]
+Hr = 3.0  # Радиальная глубина резания [мм]
+omega = 4800  # Скорость вращения шпинделя [об/мин]
+f = 40.0  # Подача на зуб [мкм]
+b = 150  # Длина заготовки [мм]
+# dt = 10  # Время, которое прошло с момента запуска фрезы [с]
+dx = 0.2  # Разбиение детали dx [мм]
 
-# def calculate_disk_coordinates(t, omega, V, points):
-#     x0, y0 = tool_start_x, tool_start_y  # Начальные координаты диска (центр)
-#     x_result = []
-#     y_result = []
-#
-#     for point in points:
-#         # Вычисляем угол, на который вращается диск за время t
-#         angle_after_t = omega * t - (np.pi - alpha)
-#
-#         # Вычисляем координаты точки на диске, учитывая вращение
-#         x_point = x0 + point[0] * np.cos(angle) - point[1] * np.sin(angle)
-#         y_point = y0 + point[0] * np.sin(angle) + point[1] * np.cos(angle)
-#
-#         # Учитываем движение диска
-#         x_point += V * t
-#         x_result.append(x_point)
-#         y_result.append(y_point)
-#
-#     return x_result, y_result
+# t0 = 0  # Начало испытаний(время для слайдера)
 
+#  Угол вступления в первый контакт фрезы и заготовки
+alpha = np.arccos(1 - 2*Hr/D)
 
+T = 1 / (omega / 60)  # Период одного оборота шпинделя
+oomega = 2 * np.pi / T  # Угловая скорость рад/с
 
-# Функция для отображения текущего состояния резания
-# def plot_tool_path(t, alpha=0):
-#     plt.figure(figsize=(8, 6))
-#
-#     # Отобразите заготовку (прямоугольник в примере)
-#     plt.plot([0, b, b, 0, 0], [0, 0, b_workpiece, b_workpiece, 0], 'b-', label='Workpiece')
-#
-#     # Получите координаты вершин фрезы
-#     tool_vertices = calculate_tool_path(t, alpha)
-#
-#     # Отобразите фрезу (зубья фрезы)
-#     tool_x, tool_y = zip(*tool_vertices)
-#     plt.plot(tool_x, tool_y, 'r-', label='Cutter')
-#
-#     plt.axis('equal')
-#     plt.title(f"Time: {t} s")
-#     plt.legend()
-#     plt.show()
+# Высота заготовки(для примера) [мм]
+b_workpiece = 50.0
+
+# Скорость подачи стола [мм/c]. В моем примере 12.8 мм/c
+V_f = f * omega * n / (60 * (10**3))
+print("V_f = ", V_f)
+
+# Начальные координаты фрезы (ноль СК - это левый нижний угол заготовки)
+tool_start_y = b_workpiece - Hr + D/2
+tool_start_x = - D/2 * np.sin(alpha)
+
+num_points = int(b / dx)  # Кол-во отрезков разбиения
+x_values = np.arange(num_points) * dx
+buffer = np.column_stack((x_values, np.full(num_points, b_workpiece)))
 
 
-# n = int(input('Кол-во зубьев фрезы: '))  # Кол-во зубьев фрезы [безразм]
-# D = float(input('Диаметр фрезы[мм]: '))  # Диаметр фрезы [мм]
-# a = float(input('Ширина резания[мм]: '))  # Ширина резания [мм]
-# Hr = float(input('Радиальная глубина резания[мм]: '))  # Радиальная глубина резания [мм]
-# omega = float(input('Скорость вращения шпинделя[об/мин]: '))  # Скорость вращения шпинделя [об/мин]
-# f = float(input('Подача[мкм]: '))  # Подача [мкм]
-# b = float(input('Длина заготовки[мм]: '))  # Длина заготовки
-# dt = float(input('Время, прошедшее с запуска фрезы[с]: '))  # Время, которое прошло с момента запуска фрезы
-# dx = float(input('Разбиение детали на отрезки dx[мм]: '))  # Разбиение детали dx
+# Часть с зацикливанием, можем взять любое dt и t и тем самым получим процесс фрезерования
+step = 0.000125 / 4  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/400 оборота время step)
+dt = 0.4  # Через сколько остановить выполнение программы(здесь это время полного оборота)
+t = 1  # Начальный момент времени(потом будет изменяться с каждым шагом)
+finish = 1.4  # Конечный момент времени
+
+thickness_list = {}
+
+temporary_buffer = []
+
+count_len_thikness_list = 0  # Ведем подсчет какой сейчас номер шага dt / step
+
+while True:
+    if t >= finish:
+        break
+    for i in range(n):
+        find_thickness(t, i)
+        cutting(t, step)
+    t += step
+    count_len_thikness_list += 1
+
+
+plot_thickness(step, thickness_list, -1)
