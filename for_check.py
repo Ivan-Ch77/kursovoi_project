@@ -1,9 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pprint
-# import matplotlib.patches as patches
-# from ipywidgets import interact
-# from matplotlib.widgets import Slider
 
 
 def plot_figures(points1, points2):
@@ -55,9 +51,10 @@ def find_thickness(buffer, t):
 
     def distance_between_points(point1, point2):
         x1, y1 = point1
+        print(x1, y1)
         x2, y2 = point2
+        print(x2, y2)
         distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        # print(distance)
         return distance
 
     tooth_coordinate = tooth_coord(t)
@@ -67,14 +64,12 @@ def find_thickness(buffer, t):
         xi_new = tooth_coordinate[i][0]
         yi_new = tooth_coordinate[i][1]
 
-        j = int(xi_new // dx)
+        j = int(xi_new // dx)  # int всегда округляет вниз, так что это нам подходит
         xj = buffer[j][0]
         yj = buffer[j][1]
         xj1 = buffer[j+1][0]
         yj1 = buffer[j+1][1]
 
-        # if yj == yj1 == b_workpiece:
-        #     continue
         # Ищем уравнение прямой, проходящей через эти точки (y = mx + b)
         try:
             mj = (yj1 - yj)/(xj1 - xj)
@@ -82,16 +77,11 @@ def find_thickness(buffer, t):
         except RuntimeWarning:
             print('RuntimeWarning')
 
-        # for j, (x, y) in enumerate(buffer):
-
-        # Здесь нужно, чтобы yi_new была меньше y = m*xi_new+b1 для j и j+1 координат z-буфера
+        # Здесь нужно, чтобы yi_new была меньше y = mj*xi_new + bj для j и j+1 координат z-буфера
         if yi_new < mj*xi_new + bj < b_workpiece:
             # Определение коэф-ов для режущей кромки
             x_tooth = xi_new
             y_tooth = yi_new
-            # x_tooth = tooth_coord(t + dt)[i][0]
-            # y_tooth = tooth_coord(t + dt)[i][1]
-            # temporary_buffer.append((x_tooth, y_tooth))
             tool_x = tool_start_x + V_f * (t)  # Координата x центра фрезы через время t
             tool_y = tool_start_y  # Координата y центра фрезы через время t
             m_tooth = (y_tooth - tool_y) / (x_tooth - tool_x)
@@ -106,7 +96,7 @@ def find_thickness(buffer, t):
             # когда точка пересечения intersection_point и buffer[j][0] находятся в разных ячейках z-буфера
             # (т.е. точка пересечения лежит не в buffer[j], а в j-1 или еще дальше в зависимости от параметров резания)
             # , тогда нужно искать точку пересечения не с j-ой поверхностью заготовки, а с j - k поверхностью заготовки
-            k = 10
+            k = 5
             while True:
                 k -= 1
                 if intersection_point[0] < buffer[j - k][0]:
@@ -117,84 +107,28 @@ def find_thickness(buffer, t):
                     break
 
             point1 = intersection_point
-            point2 = (x_tooth, y_tooth)
+            point2 = [x_tooth, y_tooth]
 
             if intersection_point is not None:
                 distance = distance_between_points(point1, point2)
+                # Записываем для i-ой режущей кромки толщину срезаемого слоя в словарь thickness_list
                 thickness_list[i][count_len_thikness_list] = distance
-                if distance > 0.05:
-                    if point1[0] > point2[0]:
-                        print(point1, point2)
+                if distance * 1000 > f:
+                    print(f'{distance * 1000} мкм > {f} мкм ----------- ОШИБКА!!!')
             else:
                 print("Прямые параллельны, невозможно найти расстояние")
             break
 
 
-# def checking_the_cutting_tool(t, dt, i):
-#
-#     # Получаем массивы длины n из списка множеств вида (x, y)
-#     tooth_coordinate = tooth_coord(t)  # Положение зубьев фрезы в момент времени t
-#     tooth_coordinate_new = tooth_coord(t+dt)  # Положение зубьев фрезы через время dt
-#
-#     list_xiyi = []  # Структура будет содержать списки из 2х значений: (xi, yi)
-#     list_xiyi_new = []  # Структура будет содержать списки из 2х значений: (xi_new, yi_new)
-#     # Случай, когда и в момент времени t и в момент времени t+dt фреза внутри заготовки
-#     if (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and \
-#             (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
-#         list_xiyi.append((tooth_coordinate[i][0], tooth_coordinate[i][1]))
-#         list_xiyi_new.append((tooth_coordinate_new[i][0], tooth_coordinate_new[i][1]))
-#     # Случай, когда в момент времени t фреза внутри заготовки, а в момент времени t+dt - нет
-#     elif (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and not \
-#             (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
-#         # Эту часть нужно модифицировать (создать общий буфер, в котором будут изменяться координаты)
-#         # Из которого можно будет взять координаты xi_new_s, yi_new_s (с прошлых этапов фрезерования)
-#         xi_new_s = tooth_coordinate_new[i][0]
-#         yi_new_s = tooth_coordinate_new[i][1]
-#         if tooth_coordinate_new[i][0] > b:
-#             xi_new_s = b
-#         if tooth_coordinate_new[i][1] > b_workpiece:
-#             yi_new_s = b_workpiece
-#         list_xiyi.append((tooth_coordinate[i][0], tooth_coordinate[i][1]))
-#         list_xiyi_new.append((xi_new_s, yi_new_s))
-#     elif not (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and \
-#             (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
-#         # Эту часть нужно модифицировать (создать общий буфер, в котором будут изменяться координаты)
-#         # Из которого можно будет взять координаты xi_s, yi_s (с прошлых этапов фрезерования)
-#         xi_s = tooth_coordinate[i][0]
-#         yi_s = tooth_coordinate[i][1]
-#         if tooth_coordinate[i][0] > b:
-#             xi_s = b
-#         if tooth_coordinate[i][1] > b_workpiece:
-#             yi_s = b_workpiece
-#         list_xiyi.append((xi_s, yi_s))
-#         list_xiyi_new.append((tooth_coordinate_new[i][0], tooth_coordinate_new[i][1]))
-#     else:
-#         list_xiyi.append((tooth_coordinate[i][0], b_workpiece))
-#         list_xiyi_new.append((tooth_coordinate_new[i][0], b_workpiece))
-#     xi = list_xiyi[0][0]
-#     yi = list_xiyi[0][1]
-#     xi_new = list_xiyi_new[0][0]
-#     yi_new = list_xiyi_new[0][1]
-#
-#     return xi, yi, xi_new, yi_new
-
-
-# def part_of_cutting(buffer, t, dt, count_len_thikness_list=0):
-def part_of_cutting(buffer, temp_buf0, temp_buf1, count_len_thikness_list=0):
+def part_of_cutting(buffer, temp_buf0, temp_buf1):
     """Функция, которая отвечает за резание заготовки.
         На вход получает buffer - z-буфер
                          temp_buf0 - положение зубьев фрезы в момент времени t - lag*step
                          temp_buf1 - положение зубьев фрезы в момент времени t - lag*step + 1
                          lag - кол-во шагов запаздывания"""
-    print(temp_buf0, '\n', temp_buf1)
+
     # Один раз пробегаюсь по всем режущим кромкам
     for i in range(n):
-        # xi = checking_the_cutting_tool(t, dt, i)[0]
-        # yi = checking_the_cutting_tool(t, dt, i)[1]
-        # xi_new = checking_the_cutting_tool(t, dt, i)[2]
-        # yi_new = checking_the_cutting_tool(t, dt, i)[3]
-        # Получаем массивы длины n из списка множеств вида (x, y)
-
         # Определяем координаты режущих кромок в двух положениях
         xi = temp_buf0[i][0]
         yi = temp_buf0[i][1]
@@ -218,65 +152,6 @@ def part_of_cutting(buffer, temp_buf0, temp_buf1, count_len_thikness_list=0):
         # Изменяем координаты y точек буфера, лежащих между xi и xi_new
         if xi <= x <= xi_new and y > m*x + b1:
             buffer[j] = (x, m*x + b1)
-        #  Один раз пробегаюсь по буферу
-        # for j, (x, y) in enumerate(buffer):
-            # if buffer[j-1][0] <= xi_new <= buffer[j][0] and yi_new < y < b_workpiece:
-            #     # Определение коэф-ов для режущей кромки
-            #     x_tooth = tooth_coord(t+dt)[i][0]
-            #     y_tooth = tooth_coord(t + dt)[i][1]
-            #     temporary_buffer.append((x_tooth, y_tooth))
-            #     tool_x = tool_start_x + V_f * (t+dt)  # Координата x центра фрезы через время t
-            #     tool_y = tool_start_y  # Координата y центра фрезы через время t
-            #     m_tooth = (y_tooth - tool_y) / (x_tooth - tool_x)
-            #     b_tooth = tool_y - m_tooth * tool_x
-            #     # Определение коэф-ов для z-буффера
-            #     m_buffer = (buffer[j][1] - buffer[j-1][1]) / (buffer[j][0] - buffer[j-1][0])
-            #     b_buffer = buffer[j-1][1] - m_buffer * buffer[j-1][0]
-
-
-
-                # # # Используйте историю z-буфера для получения предыдущих значений
-                # m_buffer = 0
-                # b_buffer = 0
-                #
-                # if len(temporary_buffer) == 200:
-                #     m_buffer = temporary_buffer
-                # if z_buffer_history[0] is not None:  # Проверка на наличие предыдущих значений в истории
-                #     m_buffer = (z_buffer_history[0][j][1] - z_buffer_history[199][j][1]) / \
-                #                (z_buffer_history[0][j][0] - z_buffer_history[199][j][0])
-                #     b_buffer = z_buffer_history[199][j][1] - m_buffer * z_buffer_history[199][j][0]
-
-
-
-                # def find_intersection_point(m1, b1, m2, b2):
-                #     if m1 == m2:
-                #         # Прямые параллельны, нет точки пересечения
-                #         return None
-                #     else:
-                #         x = (b2 - b1) / (m1 - m2)
-                #         y = m1 * x + b1
-                #         return x, y
-                #
-                # def distance_between_points(point1, point2):
-                #     x1, y1 = point1
-                #     x2, y2 = point2
-                #     distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                #     # print(distance)
-                #     return distance
-                #
-                # intersection_point = find_intersection_point(m_tooth, b_tooth, m_buffer, b_buffer)
-                # point1 = intersection_point
-                # point2 = (x_tooth, y_tooth)
-                #
-                # if intersection_point is not None:
-                #     distance = distance_between_points(point1, point2)
-                #     thickness_list[i][count_len_thikness_list] = distance
-                # else:
-                #     print("Прямые параллельны, невозможно найти расстояние")
-            # Изменяем координаты y точек буфера, лежащих между xi и xi_new
-            # if xi <= x <= xi_new and y > m*x + b1:
-            #     buffer[j] = (x, m*x + b1)
-                # break
     return buffer
 
 
@@ -378,10 +253,7 @@ x_values = np.arange(num_points) * dx
 buffer_list = np.column_stack((x_values, np.full(num_points, b_workpiece)))
 buffer_list_test = np.column_stack((x_values, np.full(num_points, b_workpiece)))
 
-# thickness_list = [0] * len(buffer_list)
-
 temporary_buffer = []  # Временный буфер для реализации запаздывания
-
 
 # Часть с зацикливанием, можем взять любое dt и t и тем самым получим процесс фрезерования
 step = 0.000125  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/100 оборота время step)
@@ -418,23 +290,11 @@ while True:
             buffer_list = part_of_cutting(buffer_list_test, temporary_buffer[0], temporary_buffer[1])
             temporary_buffer.pop(0)  # Удаляем 0 элемент, тем самым сдвигаем все элементы хранилища влево на один
 
-            # part_of_cutting(buffer_list, t - step*99, step)
-            # temporary_buffer.pop(0)
-            # score_lag -= 1
-
         # Ищем толщину срезаемого слоя для z-буфера и времени t
         find_thickness(buffer_list, t)
 
         # Добавляем step ко времени, переходим к следующему шагу
         t = t + step
         count_len_thikness_list += 1  # Необходимо, чтобы в словаре thickness_list пройти от 0 до dt / step + 1
-        # print(t)
-# pprint.pprint(temporary_buffer)
-# print(len(temporary_buffer))
-# print(thickness_list)
-# print(len(thickness_list[0]))
-# print(count_len_thikness_list)
-# print(''.join(str(thickness_list)))
+
 plot_thickness(step, thickness_list, -1)  # Построение графика толщины срезаемого слоя
-
-
