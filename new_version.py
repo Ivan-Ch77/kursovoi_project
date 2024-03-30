@@ -416,7 +416,7 @@ def plot_thickness(step, thickness_list, number=-1):
 
     # Добавление легенды
     plt.legend()
-    plt.xlim(0.31, 0.33)
+    # plt.xlim(0.31, 0.33)
 
     # Отображение графика
     plt.show()

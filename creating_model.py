@@ -130,53 +130,53 @@ def find_thickness(buffer, t):
             break
 
 
-# def checking_the_cutting_tool(t, dt, i):
-#
-#     # Получаем массивы длины n из списка множеств вида (x, y)
-#     tooth_coordinate = tooth_coord(t)  # Положение зубьев фрезы в момент времени t
-#     tooth_coordinate_new = tooth_coord(t+dt)  # Положение зубьев фрезы через время dt
-#
-#     list_xiyi = []  # Структура будет содержать списки из 2х значений: (xi, yi)
-#     list_xiyi_new = []  # Структура будет содержать списки из 2х значений: (xi_new, yi_new)
-#     # Случай, когда и в момент времени t и в момент времени t+dt фреза внутри заготовки
-#     if (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and \
-#             (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
-#         list_xiyi.append((tooth_coordinate[i][0], tooth_coordinate[i][1]))
-#         list_xiyi_new.append((tooth_coordinate_new[i][0], tooth_coordinate_new[i][1]))
-#     # Случай, когда в момент времени t фреза внутри заготовки, а в момент времени t+dt - нет
-#     elif (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and not \
-#             (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
-#         # Эту часть нужно модифицировать (создать общий буфер, в котором будут изменяться координаты)
-#         # Из которого можно будет взять координаты xi_new_s, yi_new_s (с прошлых этапов фрезерования)
-#         xi_new_s = tooth_coordinate_new[i][0]
-#         yi_new_s = tooth_coordinate_new[i][1]
-#         if tooth_coordinate_new[i][0] > b:
-#             xi_new_s = b
-#         if tooth_coordinate_new[i][1] > b_workpiece:
-#             yi_new_s = b_workpiece
-#         list_xiyi.append((tooth_coordinate[i][0], tooth_coordinate[i][1]))
-#         list_xiyi_new.append((xi_new_s, yi_new_s))
-#     elif not (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and \
-#             (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
-#         # Эту часть нужно модифицировать (создать общий буфер, в котором будут изменяться координаты)
-#         # Из которого можно будет взять координаты xi_s, yi_s (с прошлых этапов фрезерования)
-#         xi_s = tooth_coordinate[i][0]
-#         yi_s = tooth_coordinate[i][1]
-#         if tooth_coordinate[i][0] > b:
-#             xi_s = b
-#         if tooth_coordinate[i][1] > b_workpiece:
-#             yi_s = b_workpiece
-#         list_xiyi.append((xi_s, yi_s))
-#         list_xiyi_new.append((tooth_coordinate_new[i][0], tooth_coordinate_new[i][1]))
-#     else:
-#         list_xiyi.append((tooth_coordinate[i][0], b_workpiece))
-#         list_xiyi_new.append((tooth_coordinate_new[i][0], b_workpiece))
-#     xi = list_xiyi[0][0]
-#     yi = list_xiyi[0][1]
-#     xi_new = list_xiyi_new[0][0]
-#     yi_new = list_xiyi_new[0][1]
-#
-#     return xi, yi, xi_new, yi_new
+def checking_the_cutting_tool(t, dt, i):
+
+    # Получаем массивы длины n из списка множеств вида (x, y)
+    tooth_coordinate = tooth_coord(t)  # Положение зубьев фрезы в момент времени t
+    tooth_coordinate_new = tooth_coord(t+dt)  # Положение зубьев фрезы через время dt
+
+    list_xiyi = []  # Структура будет содержать списки из 2х значений: (xi, yi)
+    list_xiyi_new = []  # Структура будет содержать списки из 2х значений: (xi_new, yi_new)
+    # Случай, когда и в момент времени t и в момент времени t+dt фреза внутри заготовки
+    if (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and \
+            (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
+        list_xiyi.append((tooth_coordinate[i][0], tooth_coordinate[i][1]))
+        list_xiyi_new.append((tooth_coordinate_new[i][0], tooth_coordinate_new[i][1]))
+    # Случай, когда в момент времени t фреза внутри заготовки, а в момент времени t+dt - нет
+    elif (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and not \
+            (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
+        # Эту часть нужно модифицировать (создать общий буфер, в котором будут изменяться координаты)
+        # Из которого можно будет взять координаты xi_new_s, yi_new_s (с прошлых этапов фрезерования)
+        xi_new_s = tooth_coordinate_new[i][0]
+        yi_new_s = tooth_coordinate_new[i][1]
+        if tooth_coordinate_new[i][0] > b:
+            xi_new_s = b
+        if tooth_coordinate_new[i][1] > b_workpiece:
+            yi_new_s = b_workpiece
+        list_xiyi.append((tooth_coordinate[i][0], tooth_coordinate[i][1]))
+        list_xiyi_new.append((xi_new_s, yi_new_s))
+    elif not (0 <= tooth_coordinate[i][0] <= b and 0 <= tooth_coordinate[i][1] <= b_workpiece) and \
+            (0 <= tooth_coordinate_new[i][0] <= b and 0 <= tooth_coordinate_new[i][1] <= b_workpiece):
+        # Эту часть нужно модифицировать (создать общий буфер, в котором будут изменяться координаты)
+        # Из которого можно будет взять координаты xi_s, yi_s (с прошлых этапов фрезерования)
+        xi_s = tooth_coordinate[i][0]
+        yi_s = tooth_coordinate[i][1]
+        if tooth_coordinate[i][0] > b:
+            xi_s = b
+        if tooth_coordinate[i][1] > b_workpiece:
+            yi_s = b_workpiece
+        list_xiyi.append((xi_s, yi_s))
+        list_xiyi_new.append((tooth_coordinate_new[i][0], tooth_coordinate_new[i][1]))
+    else:
+        list_xiyi.append((tooth_coordinate[i][0], b_workpiece))
+        list_xiyi_new.append((tooth_coordinate_new[i][0], b_workpiece))
+    xi = list_xiyi[0][0]
+    yi = list_xiyi[0][1]
+    xi_new = list_xiyi_new[0][0]
+    yi_new = list_xiyi_new[0][1]
+
+    return xi, yi, xi_new, yi_new
 
 
 # def part_of_cutting(buffer, t, dt, count_len_thikness_list=0):

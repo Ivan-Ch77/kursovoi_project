@@ -9,12 +9,12 @@ def plot_figures(points1, points2):
     # Извлекаем координаты x и y из списков точек
     x1, y1 = zip(*points1)
     X2, Y2 = zip(*points2)
-    x3, y3 = zip(*tooth_coord(1))
+    x3, y3 = zip(*tooth_coord(0))
     x4, y4 = zip(*tooth_coord(1.0125))
 
     # Строим первую фигуру - набор точек
-    plt.scatter(x1, y1, label='Фреза t=1.4')
-    plt.scatter(x3, y3, label='Фреза t=1')
+    plt.scatter(x1, y1, label='Фреза t=0.4')
+    plt.scatter(x3, y3, label='Фреза t=0')
     # plt.scatter(x4, y4, label='Фреза t=0.9')
 
     # Строим вторую фигуру - соединенные точки
@@ -29,7 +29,7 @@ def plot_figures(points1, points2):
     # Делаем одинаковый масштаб
     plt.axis('equal')
 
-    plt.xlim(0, 40)
+    plt.xlim(-5, 40)
     # Показываем график
     plt.show()
 
@@ -39,7 +39,7 @@ def find_thickness(buffer, t):
     buffer - z-буфер поверхности
     t - начальный момент времени. Нужен, чтобы построить прямую y = mx+b
     dt - момент времени для которого определяем толщину срезаемого слоя'''
-
+    # global zds
     def find_intersection_point(m1, b1, m2, b2):
         if m1 == m2:
             # Прямые параллельны, нет точки пересечения
@@ -51,18 +51,23 @@ def find_thickness(buffer, t):
 
     def distance_between_points(point1, point2):
         x1, y1 = point1
-        print(x1, y1)
+        # print(x1, y1)
         x2, y2 = point2
-        print(x2, y2)
+        # print(x2, y2)
         distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         return distance
 
     tooth_coordinate = tooth_coord(t)
 
+    # tooth_coordinate1 = tooth_coord(t-step)
+
     for i in range(n):
 
         xi_new = tooth_coordinate[i][0]
         yi_new = tooth_coordinate[i][1]
+        #
+        # xi_new_old = tooth_coordinate1[i][0]
+        # yi_new_old = tooth_coordinate1[i][1]
 
         j = int(xi_new // dx)  # int всегда округляет вниз, так что это нам подходит
         xj = buffer[j][0]
@@ -90,13 +95,16 @@ def find_thickness(buffer, t):
             m_buffer = (buffer[j+1][1] - buffer[j][1]) / (buffer[j+1][0] - buffer[j][0])
             b_buffer = buffer[j][1] - m_buffer * buffer[j][0]
 
+            if m_buffer < 0:
+                continue
+
             intersection_point = find_intersection_point(m_tooth, b_tooth, m_buffer, b_buffer)
 
             # Часть кода, котора исключает неточности, связанные с разбиением, т.к. иногда может возникнуть ситуация,
             # когда точка пересечения intersection_point и buffer[j][0] находятся в разных ячейках z-буфера
             # (т.е. точка пересечения лежит не в buffer[j], а в j-1 или еще дальше в зависимости от параметров резания)
             # , тогда нужно искать точку пересечения не с j-ой поверхностью заготовки, а с j - k поверхностью заготовки
-            k = 5
+            k = int(x_tooth // dx) - int(tool_x // dx)
             while True:
                 k -= 1
                 if intersection_point[0] < buffer[j - k][0]:
@@ -105,16 +113,40 @@ def find_thickness(buffer, t):
 
                     intersection_point = find_intersection_point(m_tooth, b_tooth, m_buffer, b_buffer)
                     break
+            point1 = intersection_point  # Точка пересечения
+            point2 = [x_tooth, y_tooth]  # Координаты режущей кромки
+            # point3 = [xi_new_old, yi_new_old]
+            point4 = [tool_x, tool_y]  # Координаты центра фрезы
 
-            point1 = intersection_point
-            point2 = [x_tooth, y_tooth]
+            # X = [point1[0], point2[0], point3[0], point4[0]]
+            # Y = [point1[1], point2[1], point3[1], point4[1]]
 
             if intersection_point is not None:
                 distance = distance_between_points(point1, point2)
+                # print(distance)
+
+                #  Обрубаем то что больше f
+                # if distance * 1000 > f:
+                #     distance = f / 1000
+
                 # Записываем для i-ой режущей кромки толщину срезаемого слоя в словарь thickness_list
                 thickness_list[i][count_len_thikness_list] = distance
-                if distance * 1000 > f:
+                # plot_points(X, Y, buffer_list)
+
+                if distance * 1000 > 1.3*f:
                     print(f'{distance * 1000} мкм > {f} мкм ----------- ОШИБКА!!!')
+                    print('Точка пересечения', point1)
+                    print('Координаты режущей кромки', point2)
+                    print('Координаты центра фрезы', point4)
+                    print(tooth_coordinate)
+                    print(np.sqrt((point2[0] - point4[0])**2 + (point2[1] - point4[1]) ** 2))
+                    print(i)
+                    print(t)
+                    if 2.0 < point4[0] < 2.04:
+                        pass
+                        plot_situation(point1, point2, point4, buffer, i)
+                    # zds = True
+
             else:
                 print("Прямые параллельны, невозможно найти расстояние")
             break
@@ -134,9 +166,9 @@ def part_of_cutting(buffer, temp_buf0, temp_buf1):
         yi = temp_buf0[i][1]
         xi_new = temp_buf1[i][0]
         yi_new = temp_buf1[i][1]
-        # Если y не изменяется -> пропускаем шаг
-        if yi == yi_new == b_workpiece:
-            continue
+        # # Если y не изменяется -> пропускаем шаг
+        # if yi == yi_new == b_workpiece:
+        #     continue
         # Ищем уравнение прямой, проходящей через эти точки (y = mx + b)
         try:
             m = (yi_new - yi)/(xi_new - xi)
@@ -144,7 +176,7 @@ def part_of_cutting(buffer, temp_buf0, temp_buf1):
         except RuntimeWarning:
             print('RuntimeWarning')
 
-        # Находим ячейку, в которой в момент времени t - lag*step + 1 остановилась фреза
+        # Находим ячейку, в которой в момент времени t - (lag-1)*step остановилась фреза
         j = int(xi_new // dx)
         # Определяем координаты x,y, которые отвечают координатам начала ячейки
         x = buffer[j][0]
@@ -170,6 +202,51 @@ def tooth_coord(t):
         coord.append([x, y])
     return coord
 
+
+def plot_situation(crossdot, cuttingpoint, millingcenter, buff, i):
+
+    X2, Y2 = zip(*buff)
+    # Строим вторую фигуру - соединенные точки
+    plt.plot(X2, Y2, label='Заготовка', linestyle='dashed')
+
+    # Координаты точек
+    x_coords = [crossdot[0], cuttingpoint[0], millingcenter[0]]
+    y_coords = [crossdot[1], cuttingpoint[1], millingcenter[1]]
+
+    # Цвета и подписи для каждой точки
+    colors = ['red', 'blue', 'green']
+    labels = ['ТчкПер', 'КРежКрки', 'координаты центра фрезы']
+
+    # Построение точек
+    plt.scatter(x_coords, y_coords, c=colors, label=labels)
+
+    # Координаты центра окружности
+    circle_center = [millingcenter[0], millingcenter[1]]
+    circle_radius = D/2
+
+    # Построение точек
+    plt.scatter(x_coords, y_coords, c=colors, label=labels)
+
+    # Добавление подписей к точкам
+    for label, x, y in zip(labels, x_coords, y_coords):
+        plt.text(x, y, label, fontsize=12, ha='right')
+
+    # Построение окружности
+    circle = plt.Circle((circle_center[0], circle_center[1]), circle_radius, color='orange', fill=False)
+    plt.gca().add_patch(circle)
+
+    # Настройка графика
+    plt.title(f'График точек с подписями и цветами для {i} режущей кромки')
+    # plt.xlabel('X-координата')
+    # plt.ylabel('Y-координата')
+    plt.legend()
+
+    # # Ограничиваем вывод графика, чтобы детальнее его рассмотреть
+    plt.xlim(1, 5.5)
+    plt.ylim(49, 50.25)
+
+    # Отображение графика
+    plt.show()
 
 def plot_thickness(step, thickness_list, number=-1):
     ''' Функция строит график толщины срезаемого слоя от времени
@@ -212,8 +289,8 @@ def plot_thickness(step, thickness_list, number=-1):
     plt.legend()
 
     # Ограничиваем вывод графика, чтобы детальнее его рассмотреть
-    plt.xlim(0.315, 0.319)
-    plt.ylim(0, 0.09)
+    plt.xlim(0.28, 0.3)
+    plt.ylim(0, 0.1)
 
     # Отображение графика
     plt.show()
@@ -228,7 +305,7 @@ omega = 4800  # Скорость вращения шпинделя [об/мин]
 f = 40.0  # Подача на зуб [мкм]
 b = 150  # Длина заготовки [мм]
 # dt = 10  # Время, которое прошло с момента запуска фрезы [с]
-dx = 0.2  # Разбиение детали dx [мм]
+dx = 0.1  # Разбиение детали dx [мм]
 
 #  Угол вступления в первый контакт фрезы и заготовки
 alpha = np.arccos(1 - 2*Hr/D)
@@ -246,7 +323,8 @@ print("V_f = ", V_f)
 # Начальные координаты фрезы (ноль СК - это левый нижний угол заготовки)
 tool_start_y = b_workpiece - Hr + D/2
 tool_start_x = - D/2 * np.sin(alpha)
-
+# tool_start_x = 0.001
+print("tool_start_x = ", tool_start_x)
 # Задаем z-буфер
 num_points = int(b / dx)  # Кол-во отрезков разбиения
 x_values = np.arange(num_points) * dx
@@ -256,15 +334,16 @@ buffer_list_test = np.column_stack((x_values, np.full(num_points, b_workpiece)))
 temporary_buffer = []  # Временный буфер для реализации запаздывания
 
 # Часть с зацикливанием, можем взять любое dt и t и тем самым получим процесс фрезерования
-step = 0.000125  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/100 оборота время step)
+step = 0.0000125  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/100 оборота время step)
 dt = 0.4  # Через сколько остановить выполнение программы
-t = 1  # Начальный момент времени(потом будет изменяться с каждым шагом)
+t = 0  # Начальный момент времени(потом будет изменяться с каждым шагом)
 
 # Будем считать, что толщина срезаемого слоя снимается для каждой режущей кромки т.е. будем так их хранить:
 # thickness_list = {1: [...], 2: [...], ... }
 # где 1, 2, ... - номер режущей кромки, а [...] - список толщин срезаемого слоя, в нем есть нулевые элементы
 thickness_list = {}
 
+print("tooth_coord = ", tooth_coord(0))
 
 for i in range(n):
     thickness_list[i] = [0] * int(dt / step + 1)  # Задаем длину списка в словаре толщин для каждой режущей кромки
@@ -276,25 +355,33 @@ count_len_thikness_list = 0  # Ведем подсчет какой сейчас
 
 # Запаздывание
 lag = 20
+shag = 0
 
 while True:
     if t >= finish:
         plot_figures(tooth_coord(t), buffer_list)  # Строим заготовку и фрезу
         break
     else:
-
         temporary_buffer.append(tooth_coord(t))  # Добавляем во временное хранилище координаты режущих кромок в момент t
+
+        # Ищем толщину срезаемого слоя для z-буфера и времени t
+        find_thickness(buffer_list, t)
 
         if len(temporary_buffer) == lag:  # Когда кол-во элементов в хранилище станет равно запаздыванию
             # Изменяем координаты z-буфера в соответствии с 0 и 1 значениями, хранящимися во временном хранилище
             buffer_list = part_of_cutting(buffer_list_test, temporary_buffer[0], temporary_buffer[1])
+            # print(temporary_buffer[0], temporary_buffer[1])
             temporary_buffer.pop(0)  # Удаляем 0 элемент, тем самым сдвигаем все элементы хранилища влево на один
-
-        # Ищем толщину срезаемого слоя для z-буфера и времени t
-        find_thickness(buffer_list, t)
+            # if t > 0.3 and zds:
+                    # print(t / step)
+                    # break
 
         # Добавляем step ко времени, переходим к следующему шагу
         t = t + step
         count_len_thikness_list += 1  # Необходимо, чтобы в словаре thickness_list пройти от 0 до dt / step + 1
 
 plot_thickness(step, thickness_list, -1)  # Построение графика толщины срезаемого слоя
+# plot_thickness(step, thickness_list, 0)  # Построение графика толщины срезаемого слоя
+# plot_thickness(step, thickness_list, 1)  # Построение графика толщины срезаемого слоя
+# plot_thickness(step, thickness_list, 2)  # Построение графика толщины срезаемого слоя
+# plot_thickness(step, thickness_list, 3)  # Построение графика толщины срезаемого слоя
