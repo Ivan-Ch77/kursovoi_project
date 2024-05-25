@@ -30,7 +30,7 @@ print("V_f = ", V_f)
 tool_start_y = b_workpiece - Hr + D/2
 # tool_start_x = - D/2 * np.sin(alpha)
 # tool_start_x = -D/2
-tool_start_x = 0
+tool_start_x = -0.3
 print("tool_start_x = ", tool_start_x)
 print("tool_start_y = ", tool_start_y)
 
@@ -51,6 +51,177 @@ b = 2*m*0.0057*73*2*np.pi
 p_sys = sys_param(m, b, c)
 
 print(p_sys)
+
+
+def plot_figures(t, buffer, tooth_cord):
+    '''
+    t - время для которого строим положение фрезы и состояние заготовки
+    buffer - z-буфер
+    '''
+    # '''Здесь происходит пострение заготовки в момент времени t+dt и фрезы в моменты времени t и t+dt
+    # points1 - список координат фрезы [[x1, y1] , [x2, y2], ..., [xn, yn]], где n - кол-во зубьев фрезы
+    # points2 список координат z-буфера вида: [..., [xi, yi],...], его длина равна b_заготовки / dx_буфера'''
+    points1 = tooth_cord
+    points2 = buffer
+    # Извлекаем координаты x и y из списков точек
+    x1, y1 = zip(*points1)
+    X2, Y2 = zip(*points2)
+    x3, y3 = zip(*tooth_cord)
+
+    # Строим первую фигуру - набор точек
+    plt.scatter(x1, y1, label='Фреза t=0.4')
+    plt.scatter(x3, y3, label='Фреза t=0')
+
+    # Строим вторую фигуру - соединенные точки
+    plt.plot(X2, Y2, label='Заготовка', linestyle='dashed')
+
+    # Добавляем подписи и легенду
+    plt.title('Моделирование фрезерования')
+    plt.xlabel('X, мм')
+    plt.ylabel('Z, мм')
+    plt.legend()
+
+    # Делаем одинаковый масштаб
+    plt.axis('equal')
+
+    plt.xlim(-5, 40)
+    # Показываем график
+    plt.show()
+
+
+def plot_force(step, fenom_list, number=-1):
+    ''' Функция строит графики сил Fx и Fy от времени
+    На вход она принимает: step - шаг разбиения по времени
+                           fenom_list - словарь с феноменами для каждой режущей кромки
+                           number - номер режущей кромки, для которой нужно вывести силы,
+                           если number = -1 - выводим для всех кромок (отсчет идет от 0 кромки)'''
+    # Создание списка значений x для построения графика
+    if number != -1:
+        x = [i * step for i in range(1, len(fenom_list[number]) + 1)]
+    else:
+        x = [i * step for i in range(1, len(fenom_list[0]) + 1)]
+        Fx_data = [0] * int(len(fenom_list[0]))
+        Fy_data = [0] * int(len(fenom_list[0]))
+    # Построение графиков для Fx и Fy
+    for key in fenom_list:
+        if number == -1 or key == number:
+            fenom = fenom_list[key]
+            Fx = [item[0] for item in fenom]
+            Fy = [item[1] for item in fenom]
+            for i in range(len(Fx_data)):
+                if Fx[i] != 0:
+                    Fx_data[i] = Fx[i]
+                if Fy[i] != 0:
+                    Fy_data[i] = Fy[i]
+
+
+    # Построение графика Fx
+    plt.figure()
+    plt.plot(x, Fx_data)
+    plt.title('График силы Fx в зависимости от времени t')
+    plt.xlabel('t, с')
+    plt.ylabel('Сила, Н')
+    # plt.xlim(0.17, 0.21)
+    plt.show()
+
+    # Построение графика Fy
+    plt.figure()
+    plt.plot(x, Fy_data)
+    plt.title('График силы Fy в зависимости от времени t')
+    plt.xlabel('t, с')
+    plt.ylabel('Сила, Н')
+    # plt.xlim(0.17, 0.21)
+    plt.show()
+
+    # Построение графиков для Fx и Fy
+    for key in fenom_list:
+        if number == -1 or key == number:
+            fenom = fenom_list[key]
+            Fx = [item[0] for item in fenom]
+            plt.plot(x, Fx, label=f'Fx (кромка {key})')
+
+    # Добавление заголовка и меток осей
+    plt.title('График силы Fx в зависимости от времени t')
+    plt.xlabel('t, с')
+    plt.ylabel('Сила, Н')
+
+    # Добавление легенды
+    plt.legend()
+
+    # Отображение графика
+    plt.show()
+
+    # Построение графиков для Fx и Fy
+    for key in fenom_list:
+        if number == -1 or key == number:
+            fenom = fenom_list[key]
+            Fy = [item[1] for item in fenom]
+            plt.plot(x, Fy, label=f'Fy (кромка {key})')
+
+    # Добавление заголовка и меток осей
+    plt.title('График силы Fz в зависимости от времени t')
+    plt.xlabel('t, с')
+    plt.ylabel('Сила, Н')
+
+    # plt.xlim(0.17, 0.21)
+
+    # Добавление легенды
+    plt.legend()
+
+    # Отображение графика
+    plt.show()
+
+
+
+def plot_thickness(step, thickness_list, number=-1):
+    ''' Функция строит график толщины срезаемого слоя от времени
+    На вход она принимает: step - шаг разбиения по времени
+                           thickness_list - словарь со списком толщин для каждой режущей кромки
+                           number - номер режущей кромки, для которой нужно вывести толщины,
+                           если number = -1 - выводим для всех кромок (отсчет идет от 0 кромки)'''
+    # Создание списка значений x и y для построения графика
+    if number != -1:
+            x = [i * step for i in range(1, len(thickness_list[number]) + 1)]
+            y = thickness_list[number]
+    else:
+        x = [i * step for i in range(1, len(thickness_list[0]) + 1)]
+        y = []
+        max_length = max(len(lst) for lst in thickness_list.values())
+
+        # Идем по индексам от 0 до max_length - 1
+        for i in range(max_length):
+            found = False
+            for key in thickness_list:
+                if len(thickness_list[key]) > i and thickness_list[key][i] != 0:
+                # if i == 1777:
+                    y.append(thickness_list[key][i])
+                    found = True
+                    break
+            if not found:
+                y.append(0)
+
+    # Построение точечного графика
+    plt.scatter(x, y, color='blue')
+
+    # Соединение точек прямыми линиями
+    plt.plot(x, y, color='red', linestyle='solid')
+
+    # Добавление заголовка и меток осей
+    plt.title('График толщины срезаемого слоя в зависимости от времени t')
+    plt.xlabel('t, с')
+    plt.ylabel('h, мм')
+
+    # # Добавление легенды
+    # plt.legend()
+
+    # Ограничиваем вывод графика, чтобы детальнее его рассмотреть
+    # plt.xlim(0.17, 0.175)
+    # plt.ylim(0, 0.08)
+
+    # Отображение графика
+    plt.show()
+
+
 
 def k_xy(x1, y1, x2, y2):
     return (y2 - y1)/(x2 - x1)
@@ -143,34 +314,40 @@ def dist(x_tooth, y_tooth, tool_x, tool_y, buffer):
 def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh):
     '''     Fi - сила на конец текущего шага
             Fi_1 - сила на начало текущего шага
-            Ft - список сил на начало текущего шага в проекциях [Fx, Fy]    '''
+            Ft - список сил на начало текущего шага в проекциях [Fx, Fy]
+            forces - суммарные силы по шагам [F_sunX, F_sumY]
+            fenlist - словарь с силами по режущим кромкам {..., i: [Fx, Fy], ...}   '''
     # Начальные условия на момент шага t
-    # x0_Duh, y0_Duh = xyDuh[0], xyDuh[1]
-    # dx0_Duh, dy0_Duh = dxdyDuh[0], dxdyDuh[1]
-    x0_Duh = xyDuh[0]
-    dx0_Duh = dxdyDuh[0]
+    x0_Duh, y0_Duh = xyDuh[0], xyDuh[1]
+    dx0_Duh, dy0_Duh = dxdyDuh[0], dxdyDuh[1]
+    # x0_Duh = xyDuh[0]
+    # dx0_Duh = dxdyDuh[0]
 
     # Fxy = np.zeros(2)
 
-    Ft = np.zeros(2)
-    # Взяли рандомные числа, в дальнейшем в цикле мы их изменим на числа из списка forces
-    Fi = Ft[0]
-    Fi_1 = 2 * Fi + 1
+    # Ft = np.zeros(2)
+    if count != 0:
+        Ft = forces[count-1]
+    else:
+        Ft = np.zeros(2)
+    # # Взяли рандомные числа, в дальнейшем в цикле мы их изменим на числа из списка forces
+    Fi_1 = np.sqrt(Ft[0]**2 + Ft[1]**2)
+    Fi = 2 * Fi_1 + 1
     F_proc = 1
-    eps = 0.01
+    eps = 0.001
 
-    # if count == 0:
-    #     Ft = np.zeros(2)
-    #     # Взяли рандомные числа, в дальнейшем в цикле мы их изменим на числа из списка forces
-    #     Fi = Ft[0]
-    #     Fi_1 = 2 * Fi + 1
-    #     F_proc = 1
-    #     # yDuh_c = x_Duhamel_start(p_sys, step, x0_Duh, dx0_Duh, Ft[1])
-    # elif count >= 1:  # При добавлении оси y будем искать Fi как np.sqrt(Ft[0]**2+Ft[1]**2)  # конец текущего шага
-    #     Ft = forces[count-1]
-    #     Fi = Ft[0]
-    #     Fi_1 = 2 * Fi + 1
-    #     F_proc = Fi
+    # if count != 0:
+    #     if forces[count-1] == [0, 0]:
+    #         Ft = np.zeros(2)
+    #         # Взяли рандомные числа, в дальнейшем в цикле мы их изменим на числа из списка forces
+    #         Fi = Ft[0]
+    #         Fi_1 = 2 * Fi + 1
+    #         F_proc = 1
+    #     else:  # При добавлении оси y будем искать Fi как np.sqrt(Ft[0]**2+Ft[1]**2)  # конец текущего шага
+    #         Ft = forces[count-1]
+    #         Fi = Ft[0]
+    #         Fi_1 = 2 * Fi + 1
+    #         F_proc = Fi
 
 
     # задаем этот блок, чтобы питон не ругался
@@ -189,19 +366,21 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
     # Список, в который мы будет записывать координаты режущих кромок на этом шаге, чтобы сделать return
     coord = []
 
-    # print('---------------------------------------')
+    print('---------------------------------------')
+    print("count: ", count)
     while abs(Fi_1-Fi)/F_proc > eps:
+        print("iteration_number:  ", iteration_number)
         # print('-.-.-.-.-.-.-.-.-.-.-..-.-.-')
         # print("abs(Fi-Fi_1)/F_proc  =  ", abs(Fi_1-Fi)/F_proc)
-        if iteration_number != 0:
-            print(iteration_number)
+        print("Fi_1 = ", Fi_1, "Fi = ", Fi)
         if iteration_number == 0:
             # xc_Duhamel = x_Duhamel_start(p_sys, step, x0_Duh, dx0_Duh, Ft[0])
             xc_Duhamel = x_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Ft[0], Ft[0])
             # print('xc_Duhamel0 = ', xc_Duhamel)
-            # yc_Duhamel = x_Duhamel_start(p_sys, step, y0_Duh, dy0_Duh, Ft[1])
+            yc_Duhamel = x_Duhamel_start(p_sys, step, y0_Duh, dy0_Duh, Ft[1])
         else:
-            xc_Duhamel = x_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Ft[0], Fi_1)
+            xc_Duhamel = x_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Fi_1, Fi)
+            print("xc_Duhamel = ", xc_Duhamel)
             # print(f'xc_Duhamel{iteration_number} = ', xc_Duhamel)
             # yc_Duhamel = x_Duhamel(p_sys, step, y0_Duh, dy0_Duh, Ft[1], Fi_1)
 
@@ -235,6 +414,7 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
             coord.append([x_tooth, y_tooth])
 
             distance = dist(x_tooth, y_tooth, tool_x, tool_y, buffer)
+            print("distance = ", distance)
             if distance != 0:
                 print("xc_Duhamel = ", xc_Duhamel, '\n', "distance = ", distance, '\n', "Ft = ", Ft)
             # print('dist = ', distance)
@@ -252,16 +432,13 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
             F_sum[0] += Fx
             F_sum[1] += Fy
             # print("F_sum = ", F_sum)
+        print("F_sum = ", F_sum)
+        # Зануляем Fy, чтобы исследовать только по x
+        Ft[1] = 0
+        F_sum[1] = 0
         if iteration_number == 0:
-            #Зануляем Fy, чтобы исследовать только по x
-            Ft[1] = 0
-            F_sum[1] = 0
-
             Fi = np.sqrt(F_sum[0] ** 2 + F_sum[1] ** 2)
         else:
-            # Зануляем Fy, чтобы исследовать только по x
-            F_sum[1] = 0
-
             Fi_1 = Fi
         Fi = np.sqrt(F_sum[0] ** 2 + F_sum[1] ** 2)
         # print("Fi = ", Fi, "Fi_1 = ", Fi_1)
@@ -275,7 +452,7 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
             F_proc = 1
         # iteration_number += 1
     if iteration_number == 1:
-        dx0_Duh = dx_Duhamel_start(p_sys, step, x0_Duh, dx0_Duh, Ft[0])
+        dx0_Duh = dx_Duhamel_start(p_sys, step, x0_Duh, dx0_Duh, Fi)
         # dy0_Duh = dx_Duhamel_start(p_sys, step, y0_Duh, dy0_Duh, Ft[1])
     else:
         dx0_Duh = dx_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Ft[0], F_sum[0])
@@ -290,6 +467,8 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
     forces[count] = F_sum
     # print("F_sum = ", F_sum)
     # print(forces)
+
+    print("abs(Fi-Fi_1)/F_proc  =  ", abs(Fi_1-Fi)/F_proc)
 
 
     return thicklist, fenlist, coord, result_xyDuh, result_dxdyDuh, forces

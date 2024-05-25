@@ -1,9 +1,9 @@
 # import Dynamics
-from geomAlg import find_thickness, plot_thickness, plot_figures,\
-    part_of_cutting, fenom_model, plot_force
+# from geomAlg import find_thickness, plot_thickness, plot_figures,\
+#     part_of_cutting, fenom_model, plot_force
 # from Dynamics import x_Duhamel_start, dx_Duhamel_start, x_Duhamel, dx_Duhamel, sys_param
 import numpy as np
-from test_geomAlg import find_thickness as ff, part_of_cutting
+from test_geomAlg import find_thickness as ff, part_of_cutting, fenom_model, plot_force, plot_thickness, plot_figures
 import matplotlib.pyplot as plt  # Plotting functionality
 
 
@@ -35,14 +35,15 @@ print("V_f = ", V_f)
 tool_start_y = b_workpiece - Hr + D/2
 # tool_start_x = - D/2 * np.sin(alpha)
 # tool_start_x = -D/2
-tool_start_x = 0
+tool_start_x = -0.3
 print("tool_start_x = ", tool_start_x)
 print("tool_start_y = ", tool_start_y)
 
 
 # Часть с зацикливанием, можем взять любое dt и t и тем самым получим процесс фрезерования
 step = 60/omega/200  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/200 оборота время step)
-dt = 0.4  # Через сколько остановить выполнение программы
+print("step = ", step)
+dt = 2  # Через сколько остановить выполнение программы
 t = 0  # Начальный момент времени(потом будет изменяться с каждым шагом)
 t0 = 0
 finish = t + dt  # Конечный момент времени
