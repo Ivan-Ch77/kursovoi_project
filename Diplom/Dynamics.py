@@ -25,6 +25,21 @@ def sys_param(m, b, c):
 #               +(2*a*n+b*p**2)/(m*p**4))
 #     x_o_o = np.exp(-n*t)*(x0*np.cos(p0*t)+(dx0+n*x0)*np.sin(p0*t)/p0)
 #     return (x_o_o+x_ch_n)
+
+# @njit
+def x_Duhamel_start(p_sys, t, x0, dx0, F):
+    m, n, p0, p = p_sys[0], p_sys[1], p_sys[2], p_sys[3]
+    x_ch_n = -np.exp(-n*t)*F*(np.cos(p0*t)+n*np.sin(p0*t)/p0)/(m*p**2) + F/(m*p**2)
+    x_o_o = np.exp(-n*t)*(x0*np.cos(p0*t)+(dx0+n*x0)*np.sin(p0*t)/p0)
+    return (x_o_o+x_ch_n)
+
+# @njit
+def dx_Duhamel_start(p_sys, t, x0, dx0, F):
+    m, n, p0, p = p_sys[0], p_sys[1], p_sys[2], p_sys[3]
+    dx_ch_n = F*np.exp(-n*t)*np.sin(p0*t)/(m*p0)
+    dx_o_o = (np.exp(-n*t)*(dx0*p0*np.cos(p0*t)-(dx0*n+x0*p**2)*np.sin(p0*t))/p0)
+    return (dx_ch_n+dx_o_o)
+
 # @njit
 def x_Duhamel(p_sys, t, x0, dx0, F_1, F_2):
     a = (F_2-F_1)/t
@@ -119,60 +134,63 @@ b = sym.Symbol('b')
 #
 # sym.simplify(defInt3)
 
-print('''Случай значимого демпфирования (неконсервативная система)\nПодынтегральное выражение:''')
-print(sym.exp(-n*(t-tau))*(F1 + ((F2-F1)/dt)*tau)*sym.sin(p0*(t-tau)))
 
-f4 = sym.exp(-n*(t-tau))*(a*tau + b)*sym.sin(p0*(t-tau))
-
-defInt4 = sym.integrate(f4, (tau, 0, t))  # Решение исходного интеграла
-
+##################################
+# print('''Случай значимого демпфирования (неконсервативная система)\nПодынтегральное выражение:''')
+# print(sym.exp(-n*(t-tau))*(F1 + ((F2-F1)/dt)*tau)*sym.sin(p0*(t-tau)))
+#
+# f4 = sym.exp(-n*(t-tau))*(a*tau + b)*sym.sin(p0*(t-tau))
+#
+# defInt4 = sym.integrate(f4, (tau, 0, t))  # Решение исходного интеграла
+#################################
 
 # def F_sin(A, w, t):
 #     return(A*sym.sin(w*t))
 
 # @njit
-def F_sin(A, w, t):
-    return(A*np.sin(w*t))
+# def F_sin(A, w, t):
+#     return(A*np.sin(w*t))
+#     # return 100
 
-A = 10
-w = 100
-T = np.linspace(0, 10, 1000)
-delta_t = T[1]-T[0]
-m, b, c = 1, 3, 100
-p_sys = sys_param(m, b, c)
-X = np.zeros(len(T))
-dX = np.zeros(len(T))
-x0, dx0 = 6, 0
-F_1 = A
+# A = 10
+# w = 100
+# T = np.linspace(0, 10, 50000)
+# delta_t = T[1]-T[0]
+# m, b, c = 1, 0, 100
+# p_sys = sys_param(m, b, c)
+# X = np.zeros(len(T))
+# dX = np.zeros(len(T))
+# x0, dx0 = 0, 0
+# F_1 = A
 
-Integr = sym.exp(-n * t) * (x0 * sym.cos(p0 * t) + (dx0 + n * x0) * sym.sin(p0 * t) / p0) + (
-        sym.exp(-n * t) / (m * p0 * p ** 4)) * (
-                 sym.sin(p0 * t) * (2 * a * n ** 2 - a * p ** 2 - b * n * p ** 2) + p0 * (
-                 sym.cos(p0 * t) * (2 * a * n - b * p ** 2) + sym.exp(n * t) * p0 * (
-                 a * p ** 2 * t - 2 * a * n + b * p ** 2)))
-dx_dt = sym.diff(Integr, t)
-print(dx_dt)
+# Integr = sym.exp(-n * t) * (x0 * sym.cos(p0 * t) + (dx0 + n * x0) * sym.sin(p0 * t) / p0) + (
+#         sym.exp(-n * t) / (m * p0 * p ** 4)) * (
+#                  sym.sin(p0 * t) * (2 * a * n ** 2 - a * p ** 2 - b * n * p ** 2) + p0 * (
+#                  sym.cos(p0 * t) * (2 * a * n - b * p ** 2) + sym.exp(n * t) * p0 * (
+#                  a * p ** 2 * t - 2 * a * n + b * p ** 2)))
+# dx_dt = sym.diff(Integr, t)
+# print(dx_dt)
 
-tau = sym.Symbol('tau')
+# tau = sym.Symbol('tau')
 
-for i in range(len(T)-1):
-    F_1 = F_sin(A, w, T[i])
-    F_2 = F_sin(A, w, T[i+1])
-    dt = T[i+1] - T[i]
-    # t = T[-1]
-    X[i+1] = x_Duhamel(p_sys, delta_t, x0, dx0, F_1, F_2)
-    dX[i+1] = dx_Duhamel(p_sys, delta_t, x0, dx0, F_1, F_2)
-    x0 = X[i+1]
-    dx0 = dX[i+1]
-# pprint.pprint(X)
-plt.title("Перемещения")
-plt.xlabel("T")
-plt.ylabel("M")
-# plt.xlim(0.1, 1.1)
-# plt.ylim(-1.8, 1.8)
-plt.grid()
-plt.plot(T, X)
-plt.show()
+# for i in range(len(T)-1):
+#     F_1 = F_sin(A, w, T[i])
+#     F_2 = F_sin(A, w, T[i+1])
+#     dt = T[i+1] - T[i]
+#     # t = T[-1]
+#     X[i+1] = x_Duhamel(p_sys, delta_t, x0, dx0, F_1, F_2)
+#     dX[i+1] = dx_Duhamel(p_sys, delta_t, x0, dx0, F_1, F_2)
+#     x0 = X[i+1]
+#     dx0 = dX[i+1]
+# # pprint.pprint(X)
+# plt.title("Перемещения")
+# plt.xlabel("T")
+# plt.ylabel("M")
+# # plt.xlim(0.1, 1.1)
+# # plt.ylim(-1.8, 1.8)
+# plt.grid()
+# plt.plot(T, X)
+# plt.show()
 # plt.title("Виброскорость")
 # plt.xlabel("T")
 # plt.ylabel("M/c")
