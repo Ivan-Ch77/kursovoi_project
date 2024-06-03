@@ -182,7 +182,9 @@ def plot_thickness(step, thickness_list, number=-1):
     # Создание списка значений x и y для построения графика
     if number != -1:
             x = [i * step for i in range(1, len(thickness_list[number]) + 1)]
+            print(x)
             y = thickness_list[number]
+            print(y)
     else:
         x = [i * step for i in range(1, len(thickness_list[0]) + 1)]
         y = []
@@ -222,6 +224,29 @@ def plot_thickness(step, thickness_list, number=-1):
     plt.show()
 
 
+def plot_amplitude(data_dict):
+    """
+    Функция для построения графика значений словаря словарей.
+
+    :param data_dict: Словарь, где ключи - метки на оси X,
+                      значения - списки чисел на оси Y.
+    """
+    for omega, values in data_dict.items():
+        if not isinstance(omega, (int, float, str)):
+            raise TypeError(f"Key '{omega}' is not a valid type. Must be int, float, or str.")
+        if not all(isinstance(value, (int, float)) for value in values):
+            raise TypeError(
+                f"One or more values in the list for key '{omega}' are not valid types. Must be int or float.")
+
+        plt.scatter([omega] * len(values), values, s=5, label=f'{omega}', color='blue', alpha=0.7)
+
+    plt.xlabel('p, Hz')
+    plt.ylabel('Amplitude, mm')
+    plt.title('Extremes of vibrations')
+    # plt.legend(loc='upper right', title='Omega')
+    plt.show()
+
+
 
 def k_xy(x1, y1, x2, y2):
     return (y2 - y1)/(x2 - x1)
@@ -245,10 +270,10 @@ def distance_between_points(x1, y1, x2, y2):
     return distance
 
 def fenom_model(h):
-    # Fr = Krc * a * h + Krb * a  # Такую формулу использовать?
-    # Ft = Ktc * a * h + Ktb * a  # Такую формулу использовать?
-    Fr = Krc * a * h  # Такую формулу использовать?
-    Ft = Ktc * a * h  # Такую формулу использовать?
+    Fr = Krc * a * h + Krb * a  # Такую формулу использовать?
+    Ft = Ktc * a * h + Ktb * a  # Такую формулу использовать?
+    # Fr = Krc * a * h  # Такую формулу использовать?
+    # Ft = Ktc * a * h  # Такую формулу использовать?
     return [Fr, Ft]
 
 def decart_fenom_model(cosfi, sinfi, FrFt: list):
@@ -366,13 +391,13 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
     # Список, в который мы будет записывать координаты режущих кромок на этом шаге, чтобы сделать return
     coord = []
 
-    print('---------------------------------------')
-    print("count: ", count)
+    # print('---------------------------------------')
+    # print("count: ", count)
     while abs(Fi_1-Fi)/F_proc > eps:
-        print("iteration_number:  ", iteration_number)
+        # print("iteration_number:  ", iteration_number)
         # print('-.-.-.-.-.-.-.-.-.-.-..-.-.-')
         # print("abs(Fi-Fi_1)/F_proc  =  ", abs(Fi_1-Fi)/F_proc)
-        print("Fi_1 = ", Fi_1, "Fi = ", Fi)
+        # print("Fi_1 = ", Fi_1, "Fi = ", Fi)
         if iteration_number == 0:
             # xc_Duhamel = x_Duhamel_start(p_sys, step, x0_Duh, dx0_Duh, Ft[0])
             xc_Duhamel = x_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Ft[0], Ft[0])
@@ -380,7 +405,7 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
             yc_Duhamel = x_Duhamel_start(p_sys, step, y0_Duh, dy0_Duh, Ft[1])
         else:
             xc_Duhamel = x_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Fi_1, Fi)
-            print("xc_Duhamel = ", xc_Duhamel)
+            # print("xc_Duhamel = ", xc_Duhamel)
             # print(f'xc_Duhamel{iteration_number} = ', xc_Duhamel)
             # yc_Duhamel = x_Duhamel(p_sys, step, y0_Duh, dy0_Duh, Ft[1], Fi_1)
 
@@ -414,9 +439,9 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
             coord.append([x_tooth, y_tooth])
 
             distance = dist(x_tooth, y_tooth, tool_x, tool_y, buffer)
-            print("distance = ", distance)
-            if distance != 0:
-                print("xc_Duhamel = ", xc_Duhamel, '\n', "distance = ", distance, '\n', "Ft = ", Ft)
+            # print("distance = ", distance)
+            # if distance != 0:
+                # print("xc_Duhamel = ", xc_Duhamel, '\n', "distance = ", distance, '\n', "Ft = ", Ft)
             # print('dist = ', distance)
 
             # Записываем для i-ой режущей кромки толщину срезаемого слоя в словарь thickness_list
@@ -432,7 +457,7 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
             F_sum[0] += Fx
             F_sum[1] += Fy
             # print("F_sum = ", F_sum)
-        print("F_sum = ", F_sum)
+        # print("F_sum = ", F_sum)
         # Зануляем Fy, чтобы исследовать только по x
         Ft[1] = 0
         F_sum[1] = 0
@@ -468,7 +493,7 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
     # print("F_sum = ", F_sum)
     # print(forces)
 
-    print("abs(Fi-Fi_1)/F_proc  =  ", abs(Fi_1-Fi)/F_proc)
+    # print("abs(Fi-Fi_1)/F_proc  =  ", abs(Fi_1-Fi)/F_proc)
 
 
     return thicklist, fenlist, coord, result_xyDuh, result_dxdyDuh, forces
