@@ -8,34 +8,36 @@ n = 2  # Кол-во зубьев фрезы [безразм]
 D = 6.0  # Диаметр фрезы [мм]
 a = 4.0  # Ширина резания [мм]
 Hr = 3.0  # Радиальная глубина резания [мм]
-omega = 1684  # Скорость вращения шпинделя [об/мин]
+# omega = 1684  # Скорость вращения шпинделя [об/мин]
 f = 40.0  # Подача на зуб [мкм]
 bx = 150.0  # Длина заготовки [мм]
 dx = 0.005  # Разбиение детали dx [мм]
-
-T = 1 / (omega / 60)  # Период одного оборота шпинделя
-print('T = ', T)
-oomega = 2 * np.pi / T  # Угловая скорость рад/с
-print('oomega = ', oomega)
-
+#
+# T = 1 / (omega / 60)  # Период одного оборота шпинделя
+# print('T = ', T)
+# oomega = 2 * np.pi / T  # Угловая скорость рад/с
+# print('oomega = ', oomega)
+#
 
 # Высота заготовки(для примера) [мм]
 b_workpiece = 50.0
 
-# Скорость подачи стола [мм/с]. В моем примере 12.8 мм/с
-V_f = f * n * omega / (60 * (10**3))
-print("V_f = ", V_f)
+# # Скорость подачи стола [мм/с]. В моем примере 12.8 мм/с
+# V_f = f * n * omega / (60 * (10**3))
+# print("V_f = ", V_f)
 
-# Начальные координаты фрезы (ноль СК - это левый нижний угол заготовки)
-tool_start_y = b_workpiece - Hr + D/2
+# # Начальные координаты фрезы (ноль СК - это левый нижний угол заготовки)
+# tool_start_y = b_workpiece - Hr + D/2
+#
 # tool_start_x = - D/2 * np.sin(alpha)
 # tool_start_x = -D/2
-tool_start_x = -0.3
-print("tool_start_x = ", tool_start_x)
-print("tool_start_y = ", tool_start_y)
+
+# tool_start_x = -0.3
+# print("tool_start_x = ", tool_start_x)
+# print("tool_start_y = ", tool_start_y)
 
 # Часть с зацикливанием, можем взять любое dt и t и тем самым получим процесс фрезерования
-step = 60/omega/200  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/200 оборота время step)
+# step = 60/omega/200  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/200 оборота время step)
 
 
 # # Феноменологическая модель
@@ -44,13 +46,23 @@ Ktc = 970.0  # [Н/мм^2]
 Krb = 2.0  # [Н/мм^2]
 Ktb = 7.7  # [Н/мм^2]
 
-m = 2.3*10**6/((73*2*np.pi)**2)
-c = 2.3*10**6
-b = 2*m*0.0057*73*2*np.pi
+# Для x
+m_x = 2.3*10**6/((73*2*np.pi)**2)
+c_x = 2.3*10**6
+b_x = 2*m_x*0.0057*73*2*np.pi
 
-p_sys = sys_param(m, b, c)
+p_sys_x = sys_param(m_x, b_x, c_x)
 
-print(p_sys)
+print(p_sys_x)
+
+# Для y
+m_y = 2.3*10**6/((73*2*np.pi)**2)
+c_y = 2.3*10**6
+b_y = 2*m_y*0.0057*73*2*np.pi
+
+p_sys_y = sys_param(m_y, b_y, c_y)
+
+print(p_sys_y)
 
 
 def plot_figures(t, buffer, tooth_cord):
@@ -122,14 +134,16 @@ def plot_force(step, fenom_list, number=-1):
     plt.xlabel('t, с')
     plt.ylabel('Сила, Н')
     # plt.xlim(0.17, 0.21)
+    plt.grid(True)
     plt.show()
 
     # Построение графика Fy
     plt.figure()
     plt.plot(x, Fy_data)
-    plt.title('График силы Fy в зависимости от времени t')
+    plt.title('График силы Fz в зависимости от времени t')
     plt.xlabel('t, с')
     plt.ylabel('Сила, Н')
+    plt.grid(True)
     # plt.xlim(0.17, 0.21)
     plt.show()
 
@@ -226,7 +240,7 @@ def plot_thickness(step, thickness_list, number=-1):
 
 def plot_amplitude(data_dict):
     """
-    Функция для построения графика значений словаря словарей.
+    Функция для построения графика значений словаря словарей с масштабированием значений по оси Y в 10**3 раз.
 
     :param data_dict: Словарь, где ключи - метки на оси X,
                       значения - списки чисел на оси Y.
@@ -238,12 +252,16 @@ def plot_amplitude(data_dict):
             raise TypeError(
                 f"One or more values in the list for key '{omega}' are not valid types. Must be int or float.")
 
-        plt.scatter([omega] * len(values), values, s=5, label=f'{omega}', color='blue', alpha=0.7)
+        # Увеличиваем значения на 10**3 раз
+        scaled_values = [value * 1000 for value in values]
+
+        plt.scatter([omega] * len(scaled_values), scaled_values, s=5, label=f'{omega}', color='blue', alpha=0.7)
 
     plt.xlabel('p, Hz')
     plt.ylabel('Amplitude, mm')
     plt.title('Extremes of vibrations')
     # plt.legend(loc='upper right', title='Omega')
+    plt.grid(True)
     plt.show()
 
 
@@ -336,7 +354,8 @@ def dist(x_tooth, y_tooth, tool_x, tool_y, buffer):
         distance = 0
     return distance
 
-def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh):
+def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh, step, omega,
+                   oomega, tool_start_x, tool_start_y):
     '''     Fi - сила на конец текущего шага
             Fi_1 - сила на начало текущего шага
             Ft - список сил на начало текущего шага в проекциях [Fx, Fy]
@@ -347,6 +366,11 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
     dx0_Duh, dy0_Duh = dxdyDuh[0], dxdyDuh[1]
     # x0_Duh = xyDuh[0]
     # dx0_Duh = dxdyDuh[0]
+
+
+    # Скорость подачи стола [мм/с]. В моем примере 12.8 мм/с
+    V_f = f * n * omega / (60 * (10 ** 3))
+    # print("V_f = ", V_f)
 
     # Fxy = np.zeros(2)
 
@@ -400,19 +424,19 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
         # print("Fi_1 = ", Fi_1, "Fi = ", Fi)
         if iteration_number == 0:
             # xc_Duhamel = x_Duhamel_start(p_sys, step, x0_Duh, dx0_Duh, Ft[0])
-            xc_Duhamel = x_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Ft[0], Ft[0])
+            xc_Duhamel = x_Duhamel(p_sys_x, step, x0_Duh, dx0_Duh, Ft[0], Ft[0])
             # print('xc_Duhamel0 = ', xc_Duhamel)
-            yc_Duhamel = x_Duhamel_start(p_sys, step, y0_Duh, dy0_Duh, Ft[1])
+            yc_Duhamel = x_Duhamel_start(p_sys_y, step, y0_Duh, dy0_Duh, Ft[1])
         else:
-            xc_Duhamel = x_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Fi_1, Fi)
+            xc_Duhamel = x_Duhamel(p_sys_x, step, x0_Duh, dx0_Duh, Fi_1, Fi)
             # print("xc_Duhamel = ", xc_Duhamel)
             # print(f'xc_Duhamel{iteration_number} = ', xc_Duhamel)
-            # yc_Duhamel = x_Duhamel(p_sys, step, y0_Duh, dy0_Duh, Ft[1], Fi_1)
+            yc_Duhamel = x_Duhamel(p_sys_y, step, y0_Duh, dy0_Duh, Ft[1], Fi_1)
 
         # Задаем положение центра фрезы
         tool_x = tool_start_x +V_f*t - abs(xc_Duhamel*10**3)
         # tool_x = tool_start_x + V_f * t
-        tool_y = tool_start_y
+        tool_y = tool_start_y - abs(yc_Duhamel*10**3)
         # tool_y = tool_start_y + V_f * t - yc_Duhamel*10**3
 
 
@@ -469,7 +493,7 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
         # print("Fi = ", Fi, "Fi_1 = ", Fi_1)
         iteration_number += 1
         if iteration_number > 100:
-            print(iteration_number)
+            print("Итерация вышла за пределы в 100 шагов:", iteration_number)
             break
         if Fi != 0:
             F_proc = Fi
@@ -477,15 +501,16 @@ def find_thickness(t, buffer, count, fenlist, forces, thicklist, xyDuh, dxdyDuh)
             F_proc = 1
         # iteration_number += 1
     if iteration_number == 1:
-        dx0_Duh = dx_Duhamel_start(p_sys, step, x0_Duh, dx0_Duh, Fi)
-        # dy0_Duh = dx_Duhamel_start(p_sys, step, y0_Duh, dy0_Duh, Ft[1])
+        dx0_Duh = dx_Duhamel_start(p_sys_x, step, x0_Duh, dx0_Duh, Fi)
+        dy0_Duh = dx_Duhamel_start(p_sys_y, step, y0_Duh, dy0_Duh, Ft[1])
     else:
-        dx0_Duh = dx_Duhamel(p_sys, step, x0_Duh, dx0_Duh, Ft[0], F_sum[0])
-        # dy0_Duh = dx_Duhamel(p_sys, step, y0_Duh, dy0_Duh, Ft[1], F_sum[1])
+        dx0_Duh = dx_Duhamel(p_sys_x, step, x0_Duh, dx0_Duh, Ft[0], F_sum[0])
+        dy0_Duh = dx_Duhamel(p_sys_y, step, y0_Duh, dy0_Duh, Ft[1], F_sum[1])
 
     x0_Duh = xc_Duhamel
-    y0_Duh = 0
-    dy0_Duh = 0
+    y0_Duh = yc_Duhamel
+    # y0_Duh = 0
+    # dy0_Duh = 0
 
     result_xyDuh = [x0_Duh, y0_Duh]
     result_dxdyDuh = [dx0_Duh, dy0_Duh]

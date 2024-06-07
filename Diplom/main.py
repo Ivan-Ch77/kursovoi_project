@@ -78,17 +78,18 @@ print("b=", b)
 
 p_sys = sys_param(m, b, c)
 
-vibration_amplitude = {}  # Список словарей со значениями амплитуд и характерной для них скорости вращения
+vibration_amplitude_x = {}  # Список словарей со значениями амплитуд и характерной для них скорости вращения
+vibration_amplitude_y = {}  # Список словарей со значениями амплитуд и характерной для них скорости вращения
 
 p_otnos = 0.3
-p_otnos_finish = 2.5
+p_otnos_finish = 3.5
 
 while True:
     if p_otnos > p_otnos_finish:
         break
-    print(p_otnos)
+    # print(p_otnos)
 # for j in range(int(domega)):
-
+    print('-------------------------------------------------')
     koeff = 0  # Коэффициент, отвечающий за график амплитуд, был ли вызов функции extrema или нет
     max_amplitude = -100
     min_amplitude = 100
@@ -99,10 +100,14 @@ while True:
     # # print('oomega = ', oomega)
 
     # Собственная частота системы [рад/с]
-    p0 = p_sys[3]
+    p = p_sys[2]
+    print(f"p = {p} рад/с")
     # СЧ системы в герцах
-    p0 = p0/(2*np.pi)
-    p_pk = p0/p_otnos
+    p = p/(2*np.pi)
+    print(f"p = {p} Гц")
+    print("p_otnos = ", p_otnos)
+    p_pk = p/p_otnos
+    print(f"p_pk = {p_pk} Гц")
     oomega = p_pk*(2*np.pi)/n
     T = 2*np.pi/oomega
     omega = 60/T
@@ -113,10 +118,13 @@ while True:
     # # Относительная частота вращения шпинделя
     # p_otnos = p0/p_pk
 
-    print("omega=", omega)
+    print(f"omega = {oomega} рад/с")
+    print(f"omega = {omega} об/мин")
 
-    list_amplitude = []
-    vibration_amplitude[p_otnos] = list_amplitude
+    list_amplitude_x = []
+    list_amplitude_y = []
+    vibration_amplitude_x[p_otnos] = list_amplitude_x
+    vibration_amplitude_y[p_otnos] = list_amplitude_y
 
 
 
@@ -125,7 +133,7 @@ while True:
     # print("V_f = ", V_f)
 
     # Часть с зацикливанием, можем взять любое dt и t и тем самым получим процесс фрезерования
-    step = 60 / omega / 200  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/200 оборота время step)
+    step = 60 / omega / 150  # Шаг по времени (т.к. мы взяли 4800 об/мин -> 1/200 оборота время step)
     print("step = ", step)
     # print(j)
     dt = 6  # Через сколько остановить выполнение программы
@@ -161,6 +169,10 @@ while True:
         fenom_list[i] = [[0, 0]] * int(dt / step + 1)  # Задаем длину списка в словаре толщин для каждой режущей кромки
     # pprint.pprint(fenom_list)
 
+    result_forces_for_p_otnos1_25 = {}
+    for i in range(n):
+        result_forces_for_p_otnos1_25[i] = [[0, 0]] * int(dt / step + 1)  # Задаем длину списка в словаре толщин для каждой режущей кромки
+
     forces = {}
     # Отдельный массив под суммарные силы от всех режущих интрсументов на каждом шаге
     for i in range(int(dt / step + 1)):
@@ -183,12 +195,11 @@ while True:
     Ft = Fxy
     tooth_cord = []
     X = []
-
-
     for i in range(int((finish - t0)/step)+1):
         if t >= finish:
             # plot_figures(t, buffer_list, tooth_cord)  # Строим заготовку и фрезу
-            vibration_amplitude[p_otnos] = list_amplitude
+            vibration_amplitude_x[p_otnos] = list_amplitude_x
+            vibration_amplitude_y[p_otnos] = list_amplitude_y
             # print("vibration_amplitude = ", vibration_amplitude)
             # plot_thickness(step, thickness_list, -1)  # Построение графика толщины срезаемого слоя
             break
@@ -212,13 +223,13 @@ while True:
                    count_len_thikness_list,
                    fenom_list, forces,
                    thickness_list, xy0_Duh,
-                   dx0dy0_Duh)
+                   dx0dy0_Duh, step, omega, oomega, tool_start_x, tool_start_y)
 
             # # Изменяем начальные условия для следующего шага по времени
             x0_Duh, y0_Duh = xy0_Duh[0], xy0_Duh[1]
             dx0_Duh, dy0_Duh = dx0dy0_Duh[0], dx0dy0_Duh[1]
 
-            if x0_Duh >= 0.2:
+            if x0_Duh >= 0.2 or y0_Duh >= 0.2:
                 print(f"Для omega = {omega} режим слишком неустановивш.")
                 break
                 # plot_thickness(step, vibration_amplitude, 1684)
@@ -258,28 +269,40 @@ while True:
             t += step
             count_len_thikness_list += 1  # Необходимо, чтобы в словаре thickness_list пройти от 0 до dt / step + 1
 
-            if t-step >= 4 and t-step <= 5:
-                list_amplitude.append(x0_Duh)
+            if t-step >= 4 and t-step <= 5.5:
+                list_amplitude_x.append(x0_Duh)
+                list_amplitude_y.append(y0_Duh)
             elif t-step > 5.5 and koeff == 0:
-                list_amplitude = find_extrema(list_amplitude)
-                vibration_amplitude[p_otnos] = list_amplitude
+                list_amplitude_x = find_extrema(list_amplitude_x)
+                list_amplitude_y = find_extrema(list_amplitude_y)
+                vibration_amplitude_x[p_otnos] = list_amplitude_x
+                vibration_amplitude_y[p_otnos] = list_amplitude_y
                 # plot_thickness(step, vibration_amplitude, omega)
                 koeff = 1
             # if 99 * step < t < 100*step:
             #     print('dsdwawd', fenom_model(t))
             # plot_thickness(step, thickness_list, -1)  # Построение графика толщины срезаемого слоя
     p_otnos += 0.05
+    # Проверка того, для какого этапа будем выводить силы
+    if abs(p_otnos - 1.2) < 0.0000005:
+        result_forces_for_p_otnos1_25 = fenom_list
+        plot_force(step, result_forces_for_p_otnos1_25, -1)
+        # plot_thickness(step, vibration_amplitude_x, p_otnos)
+        print("result_forces_for_p_otnos1_25 = ", result_forces_for_p_otnos1_25)
 
 # print(fenom_list)
 # print(thickness_list)
 
-plot_amplitude(vibration_amplitude)
-print("vibration_amplitude = ", vibration_amplitude)
+plot_amplitude(vibration_amplitude_x)
+plot_amplitude(vibration_amplitude_y)
+# print("vibration_amplitude = ", vibration_amplitude)
 
-step = 60 / omega / 200
+# step = 60 / omega / 150
 # plot_thickness(step, thickness_list, -1)  # Построение графика толщины срезаемого слоя
-# plot_force(step, fenom_list, -1)
-plot_thickness(step, vibration_amplitude, omega)
+# plot_force(step, result_forces_for_p_otnos1_25, -1)
+# plot_force(step, result_forces_for_p_otnos1_25, -1)
+# plot_thickness(step, vibration_amplitude_x, p_otnos)
+# plot_thickness(step, vibration_amplitude_y, p_otnos)
 
 
 # print(X)
